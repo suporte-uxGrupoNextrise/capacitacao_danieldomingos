@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Capacitação | Daniel Domingos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .loading-state {
+            display: flex; justify-content: center; align-items: center;
+            height: 200px; font-size: 1.2rem; color: #6b7280;
+        }
+        .kpi-card {
+            background-color: white; border-radius: 0.75rem; padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .kpi-title {
+            font-size: 0.875rem; font-weight: 500; color: #4b5563; text-transform: uppercase;
+        }
+        .kpi-value {
+            font-size: 2.25rem; font-weight: 700; color: #111827;
+        }
+        .kpi-delta {
+            font-size: 1rem; font-weight: 600; color: #6b7280;
+        }
+        /* Estilos da Tabela */
+        .table-container { max-height: 400px; overflow-y: auto; }
+        .styled-table { width: 100%; border-collapse: collapse; }
+        .styled-table th, .styled-table td {
+            padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #e5e7eb;
+        }
+        .styled-table th {
+            background-color: #f9fafb; font-weight: 600; color: #374151;
+        }
+        .styled-table tbody tr:hover { background-color: #f9fafb; }
+        .status-badge {
+            padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem;
+            font-weight: 500; text-transform: uppercase;
+        }
+        .status-Pendente { background-color: #fef3c7; color: #92400e; }
+        .status-Concluído { background-color: #d1fae5; color: #065f46; }
+        .status-Em-Andamento { background-color: #dbeafe; color: #1e40af; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">Dashboard de Acompanhamento</h1>
+            <p class="text-lg text-gray-600">Progresso da Capacitação e Materiais de Apoio</p>
+            <p class="text-sm text-gray-500 mt-2">Última atualização: <span id="last-updated">--</span></p>
+        </header>
+
+        <div id="url-alert" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg mb-6" role="alert">
+            <p class="font-bold">Ação Necessária</p>
+            <p>Cole a URL do seu Google Apps Script na variável `APPS_SCRIPT_URL` no código HTML.</p>
+        </div>
+
+        <div id="loading" class="loading-state">Carregando dados da planilha...</div>
+        <div id="error" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6 hidden" role="alert">
+            <p class="font-bold">Erro ao Carregar Dados</p>
+            <p id="error-message"></p>
+        </div>
+
+        <main id="dashboard-content" class="hidden">
+            
+            <section id="progresso">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Progresso do Curso</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="kpi-card">
+                        <div class="kpi-title">Progresso Total</div>
+                        <div id="kpi-progresso-perc" class="kpi-value text-blue-600">0%</div>
+                        <div id="kpi-progresso-horas" class="kpi-delta">0 de 0 horas</div>
+                    </div>
+                    <div class="kpi-card col-span-1 md:col-span-2">
+                        <div class="kpi-title">Próxima Aula</div>
+                        <div id="kpi-proxima-aula-foco" class="kpi-value" style="font-size: 1.8rem;">--</div>
+                        <div id="kpi-proxima-aula-data" class="kpi-delta">--</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-title">Horas Totais do Curso</div>
+                        <div id="kpi-total-horas" class="kpi-value text-gray-800">0</div>
+                        <div class="kpi-delta">Horas planejadas</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="cronograma" class="mt-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Aulas Pendentes</h2>
+                <div class="kpi-card table-container">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Módulo</th>
+                                <th>Foco da Aula</th>
+                                <th>Horas</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-pendentes">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="materiais" class="mt-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Materiais de Apoio</h2>
+                <div class="kpi-card table-container">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Módulo</th>
+                                <th>Foco da Aula</th>
+                                <th>Material</th>
+                                <th>Link</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-materiais">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+
+             <section id="concluidas" class="mt-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Aulas Concluídas</h2>
+                <div class="kpi-card table-container">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Módulo</th>
+                                <th>Foco da Aula</th>
+                                <th>Horas</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-concluidos">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        // =================================================================
+        // PASSO FINAL: COLE A URL DO SEU APPS SCRIPT AQUI
+        // =================================================================
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyxKY-3uPZPcx7z7AL0zE_-gjIDxPRYPhYDy9crnicP7BeLywblp9wXzkR8dG7jUV6F1A/exec';
+        // =================================================================
+
+        // Armazenamento de dados globais
+        let allData = {};
+
+        // Função Principal para buscar e renderizar
+        async function carregarDashboard() {
+            const loadingEl = document.getElementById('loading');
+            const errorEl = document.getElementById('error');
+            const errorMsgEl = document.getElementById('error-message');
+            const contentEl = document.getElementById('dashboard-content');
+            const urlAlertEl = document.getElementById('url-alert');
+
+            if (APPS_SCRIPT_URL === 'COLE_A_URL_DO_APPS_SCRIPT_AQUI') {
+                urlAlertEl.classList.remove('hidden');
+                loadingEl.classList.add('hidden');
+                return;
+            }
+            urlAlertEl.classList.add('hidden');
+            
+            try {
+                loadingEl.classList.remove('hidden');
+                errorEl.classList.add('hidden');
+                contentEl.classList.add('hidden');
+
+                const response = await fetch(APPS_SCRIPT_URL);
+                if (!response.ok) {
+                    throw new Error(`A requisição falhou com status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.status === 'error') {
+                    throw new Error(`Erro no Apps Script: ${data.message}`);
+                }
+                
+                allData = data; 
+                
+                // Formatar e Ordenar dados do cronograma
+                const cronogramaProcessado = processarCronograma(data.cronograma);
+
+                // Renderiza tudo
+                renderizarKpisCurso(cronogramaProcessado);
+                renderizarTabelaCronograma(cronogramaProcessado);
+                renderizarTabelaMateriais(data.materiais);
+
+                // Exibe o conteúdo
+                contentEl.classList.remove('hidden');
+                document.getElementById('last-updated').textContent = new Date().toLocaleString('pt-BR');
+
+            } catch (err) {
+                console.error(err);
+                errorMsgEl.textContent = err.message;
+                errorEl.classList.remove('hidden');
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Converte datas e ordena o cronograma
+         */
+        function processarCronograma(cronogramaDados) {
+            return cronogramaDados
+                .map(aula => ({
+                    ...aula,
+                    // Converte a data da planilha (que pode ser string) para um objeto Date
+                    dataObj: new Date(aula.data) 
+                }))
+                .sort((a, b) => a.dataObj - b.dataObj); // Ordena pela data
+        }
+
+        /**
+         * Formata datas como DD/MM/YYYY
+         */
+        function formatarData(dataObj) {
+            if (!dataObj || isNaN(dataObj.getTime())) {
+                return '--';
+            }
+            // Adiciona 1 dia para corrigir fuso horário (problema comum com GAS)
+            dataObj.setDate(dataObj.getDate() + 1);
+            return dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+
+        /**
+         * Renderiza os KPIs principais do curso
+         */
+        function renderizarKpisCurso(cronogramaDados) {
+            const totalHoras = cronogramaDados.reduce((acc, d) => acc + d.horas, 0);
+            const horasConcluidas = cronogramaDados
+                .filter(d => d.status.toLowerCase() === 'concluído')
+                .reduce((acc, d) => acc + d.horas, 0);
+            
+            const progresso = totalHoras > 0 ? (horasConcluidas / totalHoras) * 100 : 0;
+
+            // Encontra a primeira aula "Pendente" (já que os dados estão ordenados)
+            const proximaAula = cronogramaDados.find(d => d.status.toLowerCase() === 'pendente');
+
+            document.getElementById('kpi-progresso-perc').textContent = `${progresso.toFixed(0)}%`;
+            document.getElementById('kpi-progresso-horas').textContent = `${horasConcluidas} de ${totalHoras} horas`;
+            document.getElementById('kpi-total-horas').textContent = totalHoras;
+
+            if (proximaAula) {
+                document.getElementById('kpi-proxima-aula-foco').textContent = proximaAula.focoDaAula;
+                document.getElementById('kpi-proxima-aula-data').textContent = `${formatarData(proximaAula.dataObj)} (${proximaAula.dia})`;
+            } else {
+                document.getElementById('kpi-proxima-aula-foco').textContent = "Curso Concluído!";
+                document.getElementById('kpi-proxima-aula-data').textContent = "Parabéns!";
+            }
+        }
+
+        /**
+         * Renderiza as tabelas de aulas (Pendente e Concluído)
+         */
+        function renderizarTabelaCronograma(cronogramaDados) {
+            const tabelaPendentes = document.getElementById('tabela-pendentes');
+            const tabelaConcluidos = document.getElementById('tabela-concluidos');
+            tabelaPendentes.innerHTML = '';
+            tabelaConcluidos.innerHTML = '';
+
+            cronogramaDados.forEach(aula => {
+                const statusClass = `status-${aula.status.replace(/\s+/g, '-')}`; // ex: "Em Andamento" -> "status-Em-Andamento"
+                
+                const linhaHtml = `
+                    <tr>
+                        <td>${formatarData(aula.dataObj)}</td>
+                        <td>${aula.modulo}</td>
+                        <td>
+                            <div class="font-medium text-gray-800">${aula.focoDaAula}</div>
+                            <div class="text-sm text-gray-500">${aula.modalidade}</div>
+                        </td>
+                        <td>${aula.horas}h</td>
+                        <td><span class="status-badge ${statusClass}">${aula.status}</span></td>
+                    </tr>
+                `;
+
+                if (aula.status.toLowerCase() === 'pendente' || aula.status.toLowerCase() === 'em andamento') {
+                    tabelaPendentes.innerHTML += linhaHtml;
+                } else {
+                    tabelaConcluidos.innerHTML += linhaHtml;
+                }
+            });
+        }
+
+        /**
+         * Renderiza a tabela de Materiais de Apoio
+         */
+        function renderizarTabelaMateriais(materiaisDados) {
+            const tabela = document.getElementById('tabela-materiais');
+            tabela.innerHTML = '';
+
+            if (materiaisDados.length === 0) {
+                tabela.innerHTML = '<tr><td colspan="4" class="text-center text-gray-500 py-4">Nenhum material de apoio adicionado ainda.</td></tr>';
+                return;
+            }
+
+            materiaisDados.forEach(material => {
+                const linhaHtml = `
+                    <tr>
+                        <td>${material.modulo}</td>
+                        <td>${material.focoDaAula}</td>
+                        <td>${material.descricao}</td>
+                        <td>
+                            <a href="${material.link}" target="_blank" class="text-blue-600 hover:underline">
+                                Acessar
+                            </a>
+                        </td>
+                    </tr>
+                `;
+                tabela.innerHTML += linhaHtml;
+            });
+        }
+
+        // Inicia o carregamento quando a página é aberta
+        document.addEventListener('DOMContentLoaded', carregarDashboard);
+    </script>
+</body>
+</html>
